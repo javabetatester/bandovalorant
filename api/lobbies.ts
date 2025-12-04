@@ -77,8 +77,6 @@ async function ensureDatabaseInitialized() {
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    await ensureDatabaseInitialized();
-
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -88,64 +86,93 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).end();
     }
 
+    await ensureDatabaseInitialized();
+
     if (req.method === 'GET') {
-      const { id } = req.query;
-      
-      if (id && typeof id === 'string') {
+      try {
+        const { id } = req.query;
+        
+        if (id && typeof id === 'string') {
+          const lobby = await getLobby(id);
+          if (!lobby) {
+            return res.status(404).json({ error: 'Lobby não encontrado' });
+          }
+          return res.status(200).json(lobby);
+        }
+        
+        const lobbies = await getLobbies();
+        return res.status(200).json(lobbies);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erro ao buscar lobbies';
+        console.error('Erro no GET:', errorMessage);
+        return res.status(500).json({ 
+          error: 'Erro ao buscar lobbies',
+          message: errorMessage
+        });
+      }
+    }
+
+    if (req.method === 'POST') {
+      try {
+        const body = parseBody(req);
+        const { game_time, game_time_display, password } = body;
+        
+        if (!game_time) {
+          return res.status(400).json({ error: 'game_time é obrigatório' });
+        }
+
+        const newLobby = await createLobby({
+          id: `lobby-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          game_time,
+          game_time_display,
+          password,
+          created_at: new Date().toISOString()
+        });
+
+        return res.status(201).json(newLobby);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erro ao criar lobby';
+        console.error('Erro no POST:', errorMessage);
+        return res.status(500).json({ 
+          error: 'Erro ao criar lobby',
+          message: errorMessage
+        });
+      }
+    }
+
+    if (req.method === 'DELETE') {
+      try {
+        const { id } = req.query;
+        const body = parseBody(req);
+        const { password } = body;
+
+        if (!id || typeof id !== 'string') {
+          return res.status(400).json({ error: 'ID do lobby é obrigatório' });
+        }
+
         const lobby = await getLobby(id);
         if (!lobby) {
           return res.status(404).json({ error: 'Lobby não encontrado' });
         }
-        return res.status(200).json(lobby);
+
+        if (lobby.password && lobby.password !== password) {
+          return res.status(401).json({ error: 'Senha incorreta' });
+        }
+
+        const deleted = await deleteLobby(id);
+        if (!deleted) {
+          return res.status(500).json({ error: 'Erro ao deletar lobby' });
+        }
+
+        return res.status(200).json({ success: true });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erro ao deletar lobby';
+        console.error('Erro no DELETE:', errorMessage);
+        return res.status(500).json({ 
+          error: 'Erro ao deletar lobby',
+          message: errorMessage
+        });
       }
-      
-      const lobbies = await getLobbies();
-      return res.status(200).json(lobbies);
-    }
-
-    if (req.method === 'POST') {
-      const body = parseBody(req);
-      const { game_time, game_time_display, password } = body;
-      
-      if (!game_time) {
-        return res.status(400).json({ error: 'game_time é obrigatório' });
-      }
-
-      const newLobby = await createLobby({
-        id: `lobby-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
-        game_time,
-        game_time_display,
-        password,
-        created_at: new Date().toISOString()
-      });
-
-      return res.status(201).json(newLobby);
-    }
-
-    if (req.method === 'DELETE') {
-      const { id } = req.query;
-      const body = parseBody(req);
-      const { password } = body;
-
-      if (!id || typeof id !== 'string') {
-        return res.status(400).json({ error: 'ID do lobby é obrigatório' });
-      }
-
-      const lobby = await getLobby(id);
-      if (!lobby) {
-        return res.status(404).json({ error: 'Lobby não encontrado' });
-      }
-
-      if (lobby.password && lobby.password !== password) {
-        return res.status(401).json({ error: 'Senha incorreta' });
-      }
-
-      const deleted = await deleteLobby(id);
-      if (!deleted) {
-        return res.status(500).json({ error: 'Erro ao deletar lobby' });
-      }
-
-      return res.status(200).json({ success: true });
     }
 
     return res.status(405).json({ error: 'Método não permitido' });
@@ -158,16 +185,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('Mensagem completa:', errorMessage);
       if (error.stack) {
         console.error('Stack trace:', error.stack);
-      }
-      
-      if (error.message.includes('connection') || 
-          error.message.includes('conexão') ||
-          error.message.includes('banco de dados') ||
-          error.message.includes('database')) {
-        return res.status(500).json({ 
-          error: 'Erro de conexão com o banco de dados',
-          message: errorMessage
-        });
       }
     }
     
