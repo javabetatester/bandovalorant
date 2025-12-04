@@ -1,8 +1,18 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { addPlayer, removePlayer, type Player } from './store';
 
+function parseBody(req: VercelRequest): any {
+  if (typeof req.body === 'string') {
+    try {
+      return JSON.parse(req.body);
+    } catch {
+      return {};
+    }
+  }
+  return req.body || {};
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
@@ -14,14 +24,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     if (req.method === 'POST') {
-      const { lobby_id, slot_number, player_name, agent_name, agent_role, agent_icon } = req.body;
+      const body = parseBody(req);
+      const { lobby_id, slot_number, player_name, agent_name, agent_role, agent_icon } = body;
       
       if (!lobby_id || !slot_number || !player_name || !agent_name || !agent_role) {
         return res.status(400).json({ error: 'Campos obrigatórios faltando' });
       }
 
       const newPlayer: Player = {
-        id: `player-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `player-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         lobby_id,
         slot_number,
         player_name,
@@ -53,7 +64,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Método não permitido' });
   } catch (error) {
     console.error('Erro na API de players:', error);
-    return res.status(500).json({ error: 'Erro interno do servidor' });
+    const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
+    return res.status(500).json({ error: errorMessage });
   }
 }
 
