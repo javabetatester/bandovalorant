@@ -5,10 +5,6 @@ const DATABASE_URL = 'postgresql://neondb_owner:npg_ReEdh6Lg8PSp@ep-long-surf-ah
 function getConnectionString(): string {
   let connectionString = DATABASE_URL.trim();
   
-  if (connectionString.includes('-pooler')) {
-    connectionString = connectionString.replace('-pooler', '');
-  }
-  
   if (connectionString.includes('channel_binding')) {
     connectionString = connectionString.replace(/[?&]channel_binding=[^&]*/, '');
     connectionString = connectionString.replace(/channel_binding=[^&]*&/, '');
@@ -25,8 +21,12 @@ function initializeSql() {
       const connectionString = getConnectionString();
       sqlInstance = neon(connectionString);
     } catch (error) {
-      console.error('Erro ao criar instância SQL:', error);
-      throw error;
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('Erro ao criar instância SQL:', errorMessage);
+      if (error instanceof Error && error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
+      throw new Error(`Falha ao inicializar conexão SQL: ${errorMessage}`);
     }
   }
   return sqlInstance;
@@ -42,6 +42,8 @@ export async function initDatabase() {
     console.error('Erro ao conectar ao banco de dados:', errorMessage);
     if (error instanceof Error) {
       console.error('Stack trace:', error.stack);
+      console.error('Error name:', error.name);
+      console.error('Error constructor:', error.constructor.name);
     }
     throw new Error(`Falha na conexão com o banco de dados: ${errorMessage}`);
   }
@@ -83,6 +85,7 @@ export async function initDatabase() {
     console.error('Erro ao criar tabelas:', errorMessage);
     if (error instanceof Error) {
       console.error('Stack trace:', error.stack);
+      console.error('Error name:', error.name);
     }
     throw new Error(`Falha ao criar tabelas: ${errorMessage}`);
   }

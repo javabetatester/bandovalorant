@@ -77,7 +77,7 @@ export async function getLobbies(): Promise<Lobby[]> {
 }
 
 export async function getLobby(id: string): Promise<Lobby | null> {
-  const [lobby] = await sql`
+  const result = await sql`
     SELECT 
       id,
       game_time,
@@ -87,6 +87,9 @@ export async function getLobby(id: string): Promise<Lobby | null> {
     FROM lobbies
     WHERE id = ${id}
   `;
+
+  const lobbies = result as LobbyRow[];
+  const lobby = lobbies[0];
 
   if (!lobby) {
     return null;

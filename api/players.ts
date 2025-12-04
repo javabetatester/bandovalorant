@@ -35,15 +35,25 @@ function parseBody(req: VercelRequest): PlayerRequestBody {
 
 let dbInitialized = false;
 let dbInitPromise: Promise<void> | null = null;
+let dbInitFailed = false;
 
 async function ensureDatabaseInitialized() {
   if (dbInitialized) {
     return;
   }
 
+  if (dbInitFailed) {
+    throw new Error('Inicialização do banco de dados falhou anteriormente');
+  }
+
   if (dbInitPromise) {
-    await dbInitPromise;
-    return;
+    try {
+      await dbInitPromise;
+      return;
+    } catch (error) {
+      dbInitPromise = null;
+      throw error;
+    }
   }
 
   dbInitPromise = (async () => {
@@ -51,13 +61,22 @@ async function ensureDatabaseInitialized() {
       await initDatabase();
       dbInitialized = true;
     } catch (error) {
-      console.error('Falha ao inicializar banco de dados:', error);
+      dbInitFailed = true;
       dbInitPromise = null;
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      console.error('Falha ao inicializar banco de dados:', errorMessage);
+      if (error instanceof Error && error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
       throw error;
     }
   })();
 
-  await dbInitPromise;
+  try {
+    await dbInitPromise;
+  } catch (error) {
+    throw error;
+  }
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -112,24 +131,30 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(405).json({ error: 'Método não permitido' });
   } catch (error) {
-    console.error('Erro na API de players:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    console.error('Erro na API de players:', errorMessage);
     
     if (error instanceof Error) {
       console.error('Tipo do erro:', error.constructor.name);
-      console.error('Mensagem:', error.message);
-      console.error('Stack trace:', error.stack);
+      console.error('Mensagem completa:', errorMessage);
+      if (error.stack) {
+        console.error('Stack trace:', error.stack);
+      }
       
-      if (error.message.includes('connection') || error.message.includes('conexão')) {
+      if (error.message.includes('connection') || 
+          error.message.includes('conexão') ||
+          error.message.includes('banco de dados') ||
+          error.message.includes('database')) {
         return res.status(500).json({ 
           error: 'Erro de conexão com o banco de dados',
-          message: process.env.NODE_ENV === 'development' ? error.message : 'Verifique a configuração do banco de dados'
+          message: errorMessage
         });
       }
     }
     
     return res.status(500).json({ 
       error: 'Erro interno do servidor',
-      message: error instanceof Error ? error.message : 'Erro desconhecido'
+      message: errorMessage
     });
   }
 }
