@@ -1,9 +1,13 @@
 import { neon } from '@neondatabase/serverless';
 
-const DATABASE_URL = 'postgresql://neondb_owner:npg_ReEdh6Lg8PSp@ep-long-surf-ahpe2n82-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
+const DATABASE_URL_WITH_POOLER = 'postgresql://neondb_owner:npg_ReEdh6Lg8PSp@ep-long-surf-ahpe2n82-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
 
 function getConnectionString(): string {
-  let connectionString = DATABASE_URL.trim();
+  let connectionString = DATABASE_URL_WITH_POOLER.trim();
+  
+  if (connectionString.includes('-pooler')) {
+    connectionString = connectionString.replace('-pooler', '');
+  }
   
   if (connectionString.includes('channel_binding')) {
     connectionString = connectionString.replace(/[?&]channel_binding=[^&]*/, '');
