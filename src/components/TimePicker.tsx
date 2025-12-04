@@ -22,22 +22,25 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
   const initial = getInitialValues();
   const [hour, setHour] = useState(initial.hour);
   const [minute, setMinute] = useState(initial.minute);
+  const [isEditing, setIsEditing] = useState(false);
 
   useEffect(() => {
-    if (value && value.includes(':')) {
+    if (!isEditing && value && value.includes(':')) {
       const [h, m] = value.split(':');
       const newHour = h.replace(/^0+/, '') || '0';
       const newMinute = m.replace(/^0+/, '') || '0';
-      if (newHour !== hour) setHour(newHour);
-      if (newMinute !== minute) setMinute(newMinute);
+      setHour(newHour);
+      setMinute(newMinute);
     }
-  }, [value, hour, minute]);
+  }, [value, isEditing]);
 
   const handleHourFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsEditing(true);
     e.target.select();
   };
 
   const handleMinuteFocus = (e: React.FocusEvent<HTMLInputElement>) => {
+    setIsEditing(true);
     e.target.select();
   };
 
@@ -72,6 +75,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
   };
 
   const handleHourBlur = () => {
+    setIsEditing(false);
     let h = hour;
     if (h === '' || !h) {
       h = '0';
@@ -86,6 +90,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
   };
 
   const handleMinuteBlur = () => {
+    setIsEditing(false);
     let m = minute;
     if (m === '' || !m) {
       m = '0';

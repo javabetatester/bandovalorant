@@ -132,21 +132,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Método não permitido' });
   } catch (error) {
     console.error('Erro na API de lobbies:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
-    const errorStack = error instanceof Error ? error.stack : undefined;
     
     if (error instanceof Error) {
       console.error('Tipo do erro:', error.constructor.name);
       console.error('Mensagem:', error.message);
-      if (errorStack) {
-        console.error('Stack trace:', errorStack);
+      console.error('Stack trace:', error.stack);
+      
+      if (error.message.includes('DATABASE_URL') || error.message.includes('connection')) {
+        return res.status(500).json({ 
+          error: 'Erro de conexão com o banco de dados',
+          message: process.env.NODE_ENV === 'development' ? error.message : undefined
+        });
       }
     }
     
     return res.status(500).json({ 
       error: 'Erro interno do servidor',
-      message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
-      details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+      message: error instanceof Error ? error.message : 'Erro desconhecido'
     });
   }
 }

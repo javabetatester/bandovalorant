@@ -1,18 +1,43 @@
 import { neon } from '@neondatabase/serverless';
 
-const connectionString = process.env.DATABASE_URL || 
-  'postgresql://neondb_owner:npg_ReEdh6Lg8PSp@ep-long-surf-ahpe2n82-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+function getConnectionString(): string {
+  const dbUrl = process.env.DATABASE_URL;
+  
+  if (!dbUrl) {
+    throw new Error('DATABASE_URL não está configurada');
+  }
 
-if (!connectionString) {
-  throw new Error('DATABASE_URL não está configurada');
+  let connectionString = dbUrl;
+  
+  if (connectionString.includes('-pooler')) {
+    connectionString = connectionString.replace('-pooler', '');
+  }
+  
+  if (connectionString.includes('channel_binding')) {
+    connectionString = connectionString.replace(/[?&]channel_binding=[^&]*/, '');
+    connectionString = connectionString.replace(/channel_binding=[^&]*&/, '');
+  }
+  
+  return connectionString;
 }
+
+const connectionString = getConnectionString();
 
 export const sql = neon(connectionString);
 
 export async function initDatabase() {
   try {
     await sql`SELECT 1`;
-    
+  } catch (error) {
+    console.error('Erro ao conectar ao banco de dados:', error);
+    if (error instanceof Error) {
+      console.error('Mensagem:', error.message);
+      console.error('Connection string (sem senha):', connectionString.replace(/:[^:@]+@/, ':****@'));
+    }
+    throw new Error(`Falha na conexão com o banco de dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+  }
+  
+  try {
     await sql`
       CREATE TABLE IF NOT EXISTS lobbies (
         id TEXT PRIMARY KEY,
@@ -45,9 +70,9 @@ export async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_lobbies_game_time ON lobbies(game_time)
     `;
   } catch (error) {
-    console.error('Erro ao inicializar banco de dados:', error);
+    console.error('Erro ao criar tabelas:', error);
     if (error instanceof Error) {
-      console.error('Mensagem de erro:', error.message);
+      console.error('Mensagem:', error.message);
       console.error('Stack:', error.stack);
     }
     throw error;
