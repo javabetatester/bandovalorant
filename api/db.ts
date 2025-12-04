@@ -1,13 +1,9 @@
 import { neon } from '@neondatabase/serverless';
 
-function getConnectionString(): string {
-  const dbUrl = process.env.DATABASE_URL;
-  
-  if (!dbUrl) {
-    throw new Error('DATABASE_URL não está configurada');
-  }
+const DATABASE_URL = 'postgresql://neondb_owner:npg_ReEdh6Lg8PSp@ep-long-surf-ahpe2n82-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require';
 
-  let connectionString = dbUrl;
+function getConnectionString(): string {
+  let connectionString = DATABASE_URL.trim();
   
   if (connectionString.includes('-pooler')) {
     connectionString = connectionString.replace('-pooler', '');
@@ -21,20 +17,33 @@ function getConnectionString(): string {
   return connectionString;
 }
 
-const connectionString = getConnectionString();
+let sqlInstance: ReturnType<typeof neon> | null = null;
 
-export const sql = neon(connectionString);
+function initializeSql() {
+  if (!sqlInstance) {
+    try {
+      const connectionString = getConnectionString();
+      sqlInstance = neon(connectionString);
+    } catch (error) {
+      console.error('Erro ao criar instância SQL:', error);
+      throw error;
+    }
+  }
+  return sqlInstance;
+}
+
+export const sql = initializeSql();
 
 export async function initDatabase() {
   try {
     await sql`SELECT 1`;
   } catch (error) {
-    console.error('Erro ao conectar ao banco de dados:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    console.error('Erro ao conectar ao banco de dados:', errorMessage);
     if (error instanceof Error) {
-      console.error('Mensagem:', error.message);
-      console.error('Connection string (sem senha):', connectionString.replace(/:[^:@]+@/, ':****@'));
+      console.error('Stack trace:', error.stack);
     }
-    throw new Error(`Falha na conexão com o banco de dados: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+    throw new Error(`Falha na conexão com o banco de dados: ${errorMessage}`);
   }
   
   try {
@@ -70,11 +79,11 @@ export async function initDatabase() {
       CREATE INDEX IF NOT EXISTS idx_lobbies_game_time ON lobbies(game_time)
     `;
   } catch (error) {
-    console.error('Erro ao criar tabelas:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+    console.error('Erro ao criar tabelas:', errorMessage);
     if (error instanceof Error) {
-      console.error('Mensagem:', error.message);
-      console.error('Stack:', error.stack);
+      console.error('Stack trace:', error.stack);
     }
-    throw error;
+    throw new Error(`Falha ao criar tabelas: ${errorMessage}`);
   }
 }

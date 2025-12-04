@@ -119,10 +119,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.error('Mensagem:', error.message);
       console.error('Stack trace:', error.stack);
       
-      if (error.message.includes('DATABASE_URL') || error.message.includes('connection')) {
+      if (error.message.includes('connection') || error.message.includes('conexão')) {
         return res.status(500).json({ 
           error: 'Erro de conexão com o banco de dados',
-          message: process.env.NODE_ENV === 'development' ? error.message : undefined
+          message: process.env.NODE_ENV === 'development' ? error.message : 'Verifique a configuração do banco de dados'
         });
       }
     }
