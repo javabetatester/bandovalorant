@@ -1,0 +1,59 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { addPlayer, removePlayer, type Player } from './store';
+
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // CORS
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+
+  try {
+    if (req.method === 'POST') {
+      const { lobby_id, slot_number, player_name, agent_name, agent_role, agent_icon } = req.body;
+      
+      if (!lobby_id || !slot_number || !player_name || !agent_name || !agent_role) {
+        return res.status(400).json({ error: 'Campos obrigatórios faltando' });
+      }
+
+      const newPlayer: Player = {
+        id: `player-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        lobby_id,
+        slot_number,
+        player_name,
+        agent_name,
+        agent_role,
+        agent_icon,
+        created_at: new Date().toISOString()
+      };
+
+      const player = addPlayer(newPlayer);
+      return res.status(201).json(player);
+    }
+
+    if (req.method === 'DELETE') {
+      const { id } = req.query;
+
+      if (!id || typeof id !== 'string') {
+        return res.status(400).json({ error: 'ID do player é obrigatório' });
+      }
+
+      const deleted = removePlayer(id);
+      if (!deleted) {
+        return res.status(404).json({ error: 'Player não encontrado' });
+      }
+
+      return res.status(200).json({ success: true });
+    }
+
+    return res.status(405).json({ error: 'Método não permitido' });
+  } catch (error) {
+    console.error('Erro na API de players:', error);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
+  }
+}
+
