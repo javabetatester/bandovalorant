@@ -23,16 +23,15 @@ function parseBody(req: VercelRequest): any {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
   try {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
+    }
     if (req.method === 'POST') {
       const body = parseBody(req);
       const { lobby_id, slot_number, player_name, agent_name, agent_role, agent_icon } = body;
@@ -75,7 +74,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error('Erro na API de players:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
-    return res.status(500).json({ error: errorMessage });
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('Stack trace:', errorStack);
+    return res.status(500).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+    });
   }
 }
 

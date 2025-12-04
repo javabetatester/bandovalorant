@@ -23,30 +23,29 @@ function parseBody(req: VercelRequest): any {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
   try {
-    if (req.method === 'GET' && !req.query.id) {
-      const lobbies = getLobbies();
-      return res.status(200).json(lobbies);
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
     }
-    if (req.method === 'GET' && req.query.id) {
+
+    if (req.method === 'GET') {
       const { id } = req.query;
       
-      if (typeof id === 'string') {
+      if (id && typeof id === 'string') {
         const lobby = getLobby(id);
         if (!lobby) {
           return res.status(404).json({ error: 'Lobby não encontrado' });
         }
         return res.status(200).json(lobby);
       }
+      
+      const lobbies = getLobbies();
+      return res.status(200).json(lobbies);
     }
 
     if (req.method === 'POST') {
@@ -98,7 +97,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   } catch (error) {
     console.error('Erro na API de lobbies:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
-    return res.status(500).json({ error: errorMessage });
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error('Stack trace:', errorStack);
+    return res.status(500).json({ 
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? errorStack : undefined
+    });
   }
 }
 
