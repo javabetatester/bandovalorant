@@ -2,14 +2,24 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { addPlayer, removePlayer, type Player } from './store';
 
 function parseBody(req: VercelRequest): any {
+  if (!req.body) {
+    return {};
+  }
+  
   if (typeof req.body === 'string') {
     try {
       return JSON.parse(req.body);
-    } catch {
+    } catch (e) {
+      console.error('Erro ao parsear body como JSON:', e);
       return {};
     }
   }
-  return req.body || {};
+  
+  if (typeof req.body === 'object') {
+    return req.body;
+  }
+  
+  return {};
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {

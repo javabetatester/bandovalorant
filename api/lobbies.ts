@@ -2,14 +2,24 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getLobbies, getLobby, createLobby, deleteLobby, type Lobby } from './store';
 
 function parseBody(req: VercelRequest): any {
+  if (!req.body) {
+    return {};
+  }
+  
   if (typeof req.body === 'string') {
     try {
       return JSON.parse(req.body);
-    } catch {
+    } catch (e) {
+      console.error('Erro ao parsear body como JSON:', e);
       return {};
     }
   }
-  return req.body || {};
+  
+  if (typeof req.body === 'object') {
+    return req.body;
+  }
+  
+  return {};
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -23,18 +33,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    if (req.method === 'GET') {
+    if (req.method === 'GET' && !req.query.id) {
+      const lobbies = getLobbies();
+      return res.status(200).json(lobbies);
+    }
+    if (req.method === 'GET' && req.query.id) {
       const { id } = req.query;
       
-      if (id && typeof id === 'string') {
+      if (typeof id === 'string') {
         const lobby = getLobby(id);
         if (!lobby) {
           return res.status(404).json({ error: 'Lobby não encontrado' });
         }
         return res.status(200).json(lobby);
-      } else {
-        const lobbies = getLobbies();
-        return res.status(200).json(lobbies);
       }
     }
 
