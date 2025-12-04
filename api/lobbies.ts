@@ -2,14 +2,20 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { getLobbies, getLobby, createLobby, deleteLobby } from './store';
 import { initDatabase } from './db';
 
-function parseBody(req: VercelRequest): any {
+interface LobbyRequestBody {
+  game_time?: string;
+  game_time_display?: string;
+  password?: string;
+}
+
+function parseBody(req: VercelRequest): LobbyRequestBody {
   if (!req.body) {
     return {};
   }
   
   if (typeof req.body === 'string') {
     try {
-      return JSON.parse(req.body);
+      return JSON.parse(req.body) as LobbyRequestBody;
     } catch (e) {
       console.error('Erro ao parsear body como JSON:', e);
       return {};
@@ -17,20 +23,42 @@ function parseBody(req: VercelRequest): any {
   }
   
   if (typeof req.body === 'object') {
-    return req.body;
+    return req.body as LobbyRequestBody;
   }
   
   return {};
 }
 
 let dbInitialized = false;
+let dbInitPromise: Promise<void> | null = null;
+
+async function ensureDatabaseInitialized() {
+  if (dbInitialized) {
+    return;
+  }
+
+  if (dbInitPromise) {
+    await dbInitPromise;
+    return;
+  }
+
+  dbInitPromise = (async () => {
+    try {
+      await initDatabase();
+      dbInitialized = true;
+    } catch (error) {
+      console.error('Falha ao inicializar banco de dados:', error);
+      dbInitPromise = null;
+      throw error;
+    }
+  })();
+
+  await dbInitPromise;
+}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    if (!dbInitialized) {
-      await initDatabase();
-      dbInitialized = true;
-    }
+    await ensureDatabaseInitialized();
 
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -106,9 +134,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     console.error('Erro na API de lobbies:', error);
     const errorMessage = error instanceof Error ? error.message : 'Erro interno do servidor';
     const errorStack = error instanceof Error ? error.stack : undefined;
-    console.error('Stack trace:', errorStack);
+    
+    if (error instanceof Error) {
+      console.error('Tipo do erro:', error.constructor.name);
+      console.error('Mensagem:', error.message);
+      if (errorStack) {
+        console.error('Stack trace:', errorStack);
+      }
+    }
+    
     return res.status(500).json({ 
-      error: errorMessage,
+      error: 'Erro interno do servidor',
+      message: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
       details: process.env.NODE_ENV === 'development' ? errorStack : undefined
     });
   }

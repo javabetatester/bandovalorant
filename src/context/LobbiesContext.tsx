@@ -26,12 +26,13 @@ export function LobbiesProvider({ children }: { children: ReactNode }) {
       setLobbies(lobbiesData);
       setServerAvailable(true);
       consecutiveErrorsRef.current = 0;
-    } catch (error: any) {
-      if (error?.name === 'ServerUnavailableError' || error?.message?.includes('não está rodando')) {
+    } catch (error: unknown) {
+      const err = error as { name?: string; message?: string };
+      if (err?.name === 'ServerUnavailableError' || err?.message?.includes('não está rodando')) {
         setServerAvailable(false);
         consecutiveErrorsRef.current += 1;
         if (consecutiveErrorsRef.current === 1) {
-          console.error('Servidor backend não está disponível:', error.message);
+          console.error('Servidor backend não está disponível:', err.message);
         }
       } else {
         console.error('Erro ao buscar lobbies:', error);

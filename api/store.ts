@@ -3,6 +3,32 @@ import type { Player, Lobby } from './types';
 
 export type { Player, Lobby };
 
+interface LobbyRow {
+  id: string;
+  game_time: Date | string;
+  game_time_display: string | null;
+  password: string | null;
+  created_at: Date | string;
+}
+
+interface PlayerRow {
+  id: string;
+  lobby_id: string;
+  slot_number: number;
+  player_name: string;
+  agent_name: string;
+  agent_role: string;
+  agent_icon: string | null;
+  created_at: Date | string;
+}
+
+function toISOString(value: Date | string | null | undefined): string {
+  if (!value) return new Date().toISOString();
+  if (typeof value === 'string') return value;
+  if (value instanceof Date) return value.toISOString();
+  return String(value);
+}
+
 export async function getLobbies(): Promise<Lobby[]> {
   const lobbies = await sql`
     SELECT 
@@ -29,23 +55,23 @@ export async function getLobbies(): Promise<Lobby[]> {
     ORDER BY lobby_id, slot_number
   `;
 
-  return lobbies.map((lobby: any) => ({
+  return (lobbies as LobbyRow[]).map((lobby) => ({
     id: lobby.id,
-    game_time: lobby.game_time.toISOString(),
-    game_time_display: lobby.game_time_display || null,
-    password: lobby.password || null,
-    created_at: lobby.created_at.toISOString(),
-    players: players
-      .filter((p: any) => p.lobby_id === lobby.id)
-      .map((p: any) => ({
+    game_time: toISOString(lobby.game_time),
+    game_time_display: lobby.game_time_display ?? undefined,
+    password: lobby.password ?? undefined,
+    created_at: toISOString(lobby.created_at),
+    players: (players as PlayerRow[])
+      .filter((p) => p.lobby_id === lobby.id)
+      .map((p) => ({
         id: p.id,
         lobby_id: p.lobby_id,
         slot_number: p.slot_number,
         player_name: p.player_name,
         agent_name: p.agent_name,
         agent_role: p.agent_role,
-        agent_icon: p.agent_icon || null,
-        created_at: p.created_at.toISOString()
+        agent_icon: p.agent_icon ?? undefined,
+        created_at: toISOString(p.created_at)
       }))
   }));
 }
@@ -83,33 +109,38 @@ export async function getLobby(id: string): Promise<Lobby | null> {
 
   return {
     id: lobby.id,
-    game_time: lobby.game_time.toISOString(),
-    game_time_display: lobby.game_time_display || null,
-    password: lobby.password || null,
-    created_at: lobby.created_at.toISOString(),
-    players: players.map((p: any) => ({
+    game_time: toISOString(lobby.game_time),
+    game_time_display: (lobby as LobbyRow).game_time_display ?? undefined,
+    password: (lobby as LobbyRow).password ?? undefined,
+    created_at: toISOString(lobby.created_at),
+    players: (players as PlayerRow[]).map((p) => ({
       id: p.id,
       lobby_id: p.lobby_id,
       slot_number: p.slot_number,
       player_name: p.player_name,
       agent_name: p.agent_name,
       agent_role: p.agent_role,
-      agent_icon: p.agent_icon || null,
-      created_at: p.created_at.toISOString()
+      agent_icon: p.agent_icon ?? undefined,
+      created_at: toISOString(p.created_at)
     }))
   };
 }
 
 export async function createLobby(lobby: Omit<Lobby, 'players'>): Promise<Lobby> {
-  await sql`
-    INSERT INTO lobbies (id, game_time, game_time_display, password, created_at)
-    VALUES (${lobby.id}, ${lobby.game_time}, ${lobby.game_time_display || null}, ${lobby.password || null}, ${lobby.created_at})
-  `;
+  try {
+    await sql`
+      INSERT INTO lobbies (id, game_time, game_time_display, password, created_at)
+      VALUES (${lobby.id}, ${lobby.game_time}::timestamp, ${lobby.game_time_display || null}, ${lobby.password || null}, ${lobby.created_at}::timestamp)
+    `;
 
-  return {
-    ...lobby,
-    players: []
-  };
+    return {
+      ...lobby,
+      players: []
+    };
+  } catch (error) {
+    console.error('Erro ao criar lobby no banco:', error);
+    throw error;
+  }
 }
 
 export async function deleteLobby(id: string): Promise<boolean> {

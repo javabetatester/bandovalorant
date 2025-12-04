@@ -10,8 +10,7 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
         timeout: 10000,
-        connectTimeout: 5000,
-        configure: (proxy, _options) => {
+        configure: (proxy) => {
           proxy.on('error', (err, _req, res) => {
             console.error('Erro no proxy:', err.message)
             if (res && !res.headersSent) {
@@ -23,7 +22,7 @@ export default defineConfig({
               }))
             }
           })
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
+          proxy.on('proxyReq', (_proxyReq, req) => {
             console.log(`[Proxy] ${req.method} ${req.url} -> http://localhost:3001${req.url}`)
           })
         },

@@ -59,7 +59,7 @@ function App() {
     return () => {
       window.removeEventListener('hashchange', handleHashChange);
     };
-  }, [lobbies, lobbiesLoading]);
+  }, [lobbies, lobbiesLoading, view, selectedLobby]);
 
   const handleCreateLobby = async (
     gameTime: string,

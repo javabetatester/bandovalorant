@@ -31,7 +31,7 @@ export function TimePicker({ value, onChange }: TimePickerProps) {
       if (newHour !== hour) setHour(newHour);
       if (newMinute !== minute) setMinute(newMinute);
     }
-  }, [value]);
+  }, [value, hour, minute]);
 
   const handleHourFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     e.target.select();
