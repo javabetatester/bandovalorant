@@ -1,5 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { addPlayer, removePlayer, type Player } from './store';
+import { addPlayer, removePlayer } from './store';
+import type { Player } from './types';
+import { initDatabase } from './db';
 
 function parseBody(req: VercelRequest): any {
   if (!req.body) {
@@ -22,8 +24,15 @@ function parseBody(req: VercelRequest): any {
   return {};
 }
 
+let dbInitialized = false;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    if (!dbInitialized) {
+      await initDatabase();
+      dbInitialized = true;
+    }
+
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, DELETE, OPTIONS');
@@ -51,7 +60,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         created_at: new Date().toISOString()
       };
 
-      const player = addPlayer(newPlayer);
+      const player = await addPlayer(newPlayer);
       return res.status(201).json(player);
     }
 
@@ -62,7 +71,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'ID do player é obrigatório' });
       }
 
-      const deleted = removePlayer(id);
+      const deleted = await removePlayer(id);
       if (!deleted) {
         return res.status(404).json({ error: 'Player não encontrado' });
       }

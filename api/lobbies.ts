@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { getLobbies, getLobby, createLobby, deleteLobby, type Lobby } from './store';
+import { getLobbies, getLobby, createLobby, deleteLobby } from './store';
+import { initDatabase } from './db';
 
 function parseBody(req: VercelRequest): any {
   if (!req.body) {
@@ -22,8 +23,15 @@ function parseBody(req: VercelRequest): any {
   return {};
 }
 
+let dbInitialized = false;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
+    if (!dbInitialized) {
+      await initDatabase();
+      dbInitialized = true;
+    }
+
     res.setHeader('Access-Control-Allow-Credentials', 'true');
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -37,14 +45,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { id } = req.query;
       
       if (id && typeof id === 'string') {
-        const lobby = getLobby(id);
+        const lobby = await getLobby(id);
         if (!lobby) {
           return res.status(404).json({ error: 'Lobby não encontrado' });
         }
         return res.status(200).json(lobby);
       }
       
-      const lobbies = getLobbies();
+      const lobbies = await getLobbies();
       return res.status(200).json(lobbies);
     }
 
@@ -56,7 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'game_time é obrigatório' });
       }
 
-      const newLobby = createLobby({
+      const newLobby = await createLobby({
         id: `lobby-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         game_time,
         game_time_display,
@@ -76,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(400).json({ error: 'ID do lobby é obrigatório' });
       }
 
-      const lobby = getLobby(id);
+      const lobby = await getLobby(id);
       if (!lobby) {
         return res.status(404).json({ error: 'Lobby não encontrado' });
       }
@@ -85,7 +93,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return res.status(401).json({ error: 'Senha incorreta' });
       }
 
-      const deleted = deleteLobby(id);
+      const deleted = await deleteLobby(id);
       if (!deleted) {
         return res.status(500).json({ error: 'Erro ao deletar lobby' });
       }
